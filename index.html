@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Live Cam</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0b5cff">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+</head>
+
+<body>
+<header>📡 Live Cam</header>
+
+<div id="controls">
+    <button id="btnLink" disabled>🔗 Gerar Link</button>
+    <button id="btnCopy" disabled>📋 Copiar Link</button>
+    <button id="btnDeleteLink" disabled>❌ Excluir Link</button>
+    <button id="btnRecord" disabled>⏺️ Gravar Vídeo</button>
+    <button id="btnToggleChat">💬 Ocultar Chat</button>
+    <button id="btnSwitchCamera" style="display:none;">🔄 Trocar Câmera</button>
+    <button id="btnReload" style="display:none;">🔄 Recarregar</button>
+    <div class="status" id="status">Inicializando conexão...</div>
+    <div id="link"></div>
+    
+    <div style="margin-top: 15px;">
+        <input type="tel" id="recipientPhone" placeholder="+55 (DDD) 9XXXX-XXXX">
+        <button id="btnSendWhatsApp" disabled>📱 WhatsApp</button>
+        <button id="btnSendSMS" disabled>💬 SMS</button>
+    </div>
+</div>
+
+<div id="mainLayout">
+    <div id="leftPane">
+        <div id="videoContainer">
+            <div id="videos"></div>
+            <div id="chat">
+                <div id="chatHeader">💬 Chat</div>
+                <div id="chatMessages"></div>
+                <div id="chatInput">
+                    <button id="btnImage" title="Enviar imagem">📎</button>
+                    <input type="file" id="imageInput" accept="image/jpeg,image/jpg,image/gif" style="display:none;">
+                    <input type="text" id="messageInput" placeholder="Digite uma mensagem...">
+                    <button id="btnSend">Enviar</button>
+                </div>
+            </div>
+        </div>
+        <div id="addressLeft"></div>
+    </div>
+    <div id="rightPane">
+        <div id="addressRight"></div>
+        <div id="map"></div>
+    </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>

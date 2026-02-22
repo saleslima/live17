@@ -58,6 +58,15 @@ export class ConnectionSetup {
                 this.chat.receiveMessage(data.message);
             } else if (data.type === 'image') {
                 this.chat.receiveImage(data.dataUrl);
+            } else if (data.type === 'blur_state') {
+                // Apply blur state to remote video (PIP on sender, main on recipient)
+                if (this.camera.remoteVideoElement) {
+                    if (data.blurred) {
+                        this.camera.remoteVideoElement.style.filter = 'blur(20px)';
+                    } else {
+                        this.camera.remoteVideoElement.style.filter = 'none';
+                    }
+                }
             }
         });
     }
@@ -115,13 +124,13 @@ export class ConnectionSetup {
                     this.camera.addVideo(remoteStream, false, false, true);
                     this.ui.setStatus("Conectado");
                     
-                    // Show logo by default on recipient
-                    this.camera.showLogoOnRecipient();
-                    
-                    // Show green status indicator and hide reload
+                    // Show green status indicator and hide reload by default
                     const statusIndicator = document.getElementById("connectionStatus");
                     const btnReload = document.getElementById("btnReload");
-                    if (statusIndicator) statusIndicator.style.display = 'inline-block';
+                    if (statusIndicator) {
+                        statusIndicator.style.display = 'inline-block';
+                        statusIndicator.textContent = '🟢';
+                    }
                     if (btnReload) btnReload.disabled = true;
                 } else if (hasAudio) {
                     const audioElement = new Audio();
@@ -197,29 +206,44 @@ export class ConnectionSetup {
                 } else if (data.type === 'sender_video_visible') {
                     // Hide/show sender's video on recipient only (not recipient's own camera)
                     if (data.visible) {
-                        // Show sender's video (PIP), hide logo
+                        // Show sender's video (PIP)
                         if (this.camera.remoteVideoElement) {
                             this.camera.remoteVideoElement.style.display = 'block';
                         }
-                        this.camera.hideLogoOnRecipient();
                         
-                        // Show green status, disable reload
+                        // Show green status, disable reload and stop auto-reload
                         const statusIndicator = document.getElementById("connectionStatus");
                         const btnReload = document.getElementById("btnReload");
-                        if (statusIndicator) statusIndicator.style.display = 'inline-block';
+                        if (statusIndicator) {
+                            statusIndicator.style.display = 'inline-block';
+                            statusIndicator.textContent = '🟢';
+                        }
                         if (btnReload) btnReload.disabled = true;
+                        if (this.ui.autoReloadInterval) {
+                            clearInterval(this.ui.autoReloadInterval);
+                            this.ui.autoReloadInterval = null;
+                        }
                     } else {
-                        // Hide sender's video (PIP), show logo
+                        // Hide sender's video (PIP)
                         if (this.camera.remoteVideoElement) {
                             this.camera.remoteVideoElement.style.display = 'none';
                         }
-                        this.camera.showLogoOnRecipient();
                         
-                        // Hide green status, enable reload
+                        // Show red status, enable reload and start auto-reload
                         const statusIndicator = document.getElementById("connectionStatus");
                         const btnReload = document.getElementById("btnReload");
-                        if (statusIndicator) statusIndicator.style.display = 'none';
+                        if (statusIndicator) {
+                            statusIndicator.style.display = 'inline-block';
+                            statusIndicator.textContent = '🔴';
+                        }
                         if (btnReload) btnReload.disabled = false;
+                        
+                        // Start auto-reload every 3 seconds
+                        if (!this.ui.autoReloadInterval) {
+                            this.ui.autoReloadInterval = setInterval(() => {
+                                window.location.reload();
+                            }, 3000);
+                        }
                     }
                 } else if (data.type === 'link_deleted' && !isMonitoring) {
                     this.camera.stopLocalCamera();

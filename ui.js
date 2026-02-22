@@ -18,7 +18,8 @@ export class UIManager {
         this.isRecording = false;
         this.mediaRecorder = null;
         this.recordedChunks = [];
-        this.senderVideoVisible = false; // Default: video hidden on recipient, showing logo
+        this.senderVideoVisible = false; // Default: video hidden on recipient
+        this.autoReloadInterval = null;
 
         this.setupPhoneInput();
     }
@@ -224,7 +225,7 @@ export class UIManager {
         }
     }
 
-    toggleBlur(remoteVideoElement) {
+    toggleBlur(remoteVideoElement, peerConnection) {
         if (!remoteVideoElement) return;
         
         this.isBlurred = !this.isBlurred;
@@ -237,6 +238,11 @@ export class UIManager {
             remoteVideoElement.style.filter = 'none';
             this.btnBlur.textContent = '🔒 Desfocar Vídeo';
             this.setStatus('Desfoque removido');
+        }
+        
+        // Send blur state to other peer
+        if (peerConnection) {
+            peerConnection.sendData({ type: 'blur_state', blurred: this.isBlurred });
         }
     }
 

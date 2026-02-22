@@ -143,7 +143,7 @@ export class EventHandlers {
     }
 
     handleBlur() {
-        this.ui.toggleBlur(this.camera.remoteVideoElement);
+        this.ui.toggleBlur(this.camera.remoteVideoElement, this.peerConnection);
     }
 
     async handleSwitchCamera() {

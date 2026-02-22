@@ -81,7 +81,7 @@ export class CameraManager {
         logoOverlay.className = "logo-overlay";
         
         const img = document.createElement("img");
-        img.src = "/LOGO.PNG";
+        img.src = "LOGO.PNG";
         img.alt = "Logo";
         
         logoOverlay.appendChild(img);

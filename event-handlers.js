@@ -35,10 +35,36 @@ export class EventHandlers {
         
         // Video controls
         this.ui.btnRecord.onclick = () => this.handleRecord();
-        this.ui.btnBlur.onclick = () => this.handleBlur();
+        this.ui.btnBlur.onclick = () => this.ui.showBlurModal();
+
+        // Blur Modal Controls
+        const btnBlurSender = document.getElementById('btnBlurSender');
+        if (btnBlurSender) {
+            btnBlurSender.onclick = () => {
+                this.ui.hideBlurModal();
+                this.handleToggleSenderVideo();
+            };
+        }
+
+        const btnBlurRecipient = document.getElementById('btnBlurRecipient');
+        if (btnBlurRecipient) {
+            btnBlurRecipient.onclick = () => {
+                this.ui.hideBlurModal();
+                this.handleBlurRecipient();
+            };
+        }
+
+        const btnCancelBlur = document.getElementById('btnCancelBlur');
+        if (btnCancelBlur) {
+            btnCancelBlur.onclick = () => {
+                this.ui.hideBlurModal();
+            };
+        }
         
         const btnToggleSenderVideo = document.getElementById("btnToggleSenderVideo");
-        btnToggleSenderVideo.onclick = () => this.handleToggleSenderVideo();
+        if (btnToggleSenderVideo) {
+            btnToggleSenderVideo.onclick = () => this.handleToggleSenderVideo();
+        }
         
         const btnSwitchCamera = document.getElementById("btnSwitchCamera");
         btnSwitchCamera.onclick = () => this.handleSwitchCamera();
@@ -142,8 +168,8 @@ export class EventHandlers {
         }
     }
 
-    handleBlur() {
-        this.ui.toggleBlur(this.camera.remoteVideoElement, this.peerConnection);
+    handleBlurRecipient() {
+        this.ui.toggleRecipientBlur(this.peerConnection, this.camera.remoteVideoElement);
     }
 
     async handleSwitchCamera() {
@@ -173,19 +199,7 @@ export class EventHandlers {
     }
 
     handleToggleSenderVideo() {
-        this.ui.toggleSenderVideo();
-        const btnToggleSenderVideo = document.getElementById("btnToggleSenderVideo");
-        
-        // Sender always sees their own video and recipient's video
-        // This button only controls what the recipient sees
-        
-        if (this.ui.senderVideoVisible) {
-            btnToggleSenderVideo.textContent = '👁️ Inibir Meu Vídeo';
-            this.peerConnection.sendData({ type: 'sender_video_visible', visible: true });
-        } else {
-            btnToggleSenderVideo.textContent = '👁️ Mostrar Meu Vídeo';
-            this.peerConnection.sendData({ type: 'sender_video_visible', visible: false });
-        }
+        this.ui.toggleLocalSenderBlur(this.peerConnection);
     }
 
 }

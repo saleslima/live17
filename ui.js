@@ -12,13 +12,13 @@ export class UIManager {
         this.btnRecord = document.getElementById("btnRecord");
         this.btnBlur = document.getElementById("btnBlur");
         this.recipientPhone = document.getElementById("recipientPhone");
-        this.isBlurred = false;
+        this.isBlurred = false; // Recipient video blur state (local)
+        this.isSenderBlurred = true; // Default: Sender video is blurred (Inhibited)
         this.generatedLink = "";
         this.whatsappWindow = null;
         this.isRecording = false;
         this.mediaRecorder = null;
         this.recordedChunks = [];
-        this.senderVideoVisible = false; // Default: video hidden on recipient
         this.autoReloadInterval = null;
 
         this.setupPhoneInput();
@@ -225,29 +225,54 @@ export class UIManager {
         }
     }
 
-    toggleBlur(remoteVideoElement, peerConnection) {
-        if (!remoteVideoElement) return;
-        
-        this.isBlurred = !this.isBlurred;
-        
-        if (this.isBlurred) {
-            remoteVideoElement.style.filter = 'blur(20px)';
-            this.btnBlur.textContent = '🔓 Remover Desfoque';
-            this.setStatus('Vídeo desfocado na tela');
+    showBlurModal() {
+        const modal = document.getElementById('blurModal');
+        if (modal) modal.style.display = 'flex';
+    }
+
+    hideBlurModal() {
+        const modal = document.getElementById('blurModal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    toggleLocalSenderBlur(peerConnection) {
+        this.isSenderBlurred = !this.isSenderBlurred;
+        this.updateSenderBlurState(peerConnection);
+    }
+
+    updateSenderBlurState(peerConnection) {
+        // Apply to local PIP if it exists
+        const senderVideo = document.getElementById('senderPipVideo');
+        const btnToggleSenderVideo = document.getElementById("btnToggleSenderVideo");
+
+        if (this.isSenderBlurred) {
+            if (senderVideo) senderVideo.style.filter = 'blur(20px)';
+            if (btnToggleSenderVideo) btnToggleSenderVideo.textContent = '👁️ Mostrar Meu Vídeo';
+            this.setStatus('Seu vídeo está desfocado (Inibido)');
         } else {
-            remoteVideoElement.style.filter = 'none';
-            this.btnBlur.textContent = '🔒 Desfocar Vídeo';
-            this.setStatus('Desfoque removido');
+            if (senderVideo) senderVideo.style.filter = 'none';
+            if (btnToggleSenderVideo) btnToggleSenderVideo.textContent = '👁️ Inibir Meu Vídeo';
+            this.setStatus('Seu vídeo está visível');
         }
-        
-        // Send blur state to other peer
+
+        // Send state to recipient
         if (peerConnection) {
-            peerConnection.sendData({ type: 'blur_state', blurred: this.isBlurred });
+            peerConnection.sendData({ type: 'sender_blur', blurred: this.isSenderBlurred });
         }
     }
 
-    toggleSenderVideo() {
-        this.senderVideoVisible = !this.senderVideoVisible;
+    toggleRecipientBlur(peerConnection, remoteVideoElement) {
+        this.isBlurred = !this.isBlurred;
+        
+        if (this.isBlurred) {
+            if (remoteVideoElement) remoteVideoElement.style.filter = 'blur(20px)';
+            this.setStatus('Vídeo do visitante desfocado');
+        } else {
+            if (remoteVideoElement) remoteVideoElement.style.filter = 'none';
+            this.setStatus('Desfoque do visitante removido');
+        }
+        
+        // We only blur locally for visitor video, as per usual privacy controls
     }
 
 }

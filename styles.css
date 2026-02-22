@@ -455,7 +455,7 @@ video {
     z-index: 100;
     border: 2px solid #0b5cff;
     border-radius: 8px;
-    overflow: hidden;
+    overflow: visible;
     background: black;
 }
 
@@ -476,7 +476,8 @@ video {
     justify-content: center;
     align-items: center;
     background: rgba(15, 23, 42, 0.95);
-    z-index: 50;
+    z-index: 150;
+    border-radius: 6px;
 }
 
 .logo-overlay img {

@@ -81,11 +81,19 @@ export class CameraManager {
         logoOverlay.className = "logo-overlay";
         
         const img = document.createElement("img");
-        img.src = "LOGO.PNG";
+        img.src = "/LOGO.PNG";
         img.alt = "Logo";
         
         logoOverlay.appendChild(img);
-        this.videosContainer.appendChild(logoOverlay);
+        
+        // Find the PIP container (sender's video on recipient) and append logo there
+        const pipContainer = this.videosContainer.querySelector(".recipient-pip");
+        if (pipContainer) {
+            pipContainer.appendChild(logoOverlay);
+        } else {
+            // Fallback to videos container if PIP not found yet
+            this.videosContainer.appendChild(logoOverlay);
+        }
     }
 
     hideLogoOnRecipient() {

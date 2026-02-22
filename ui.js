@@ -10,12 +10,15 @@ export class UIManager {
         this.btnSendWhatsApp = document.getElementById("btnSendWhatsApp");
         this.btnSendSMS = document.getElementById("btnSendSMS");
         this.btnRecord = document.getElementById("btnRecord");
+        this.btnBlur = document.getElementById("btnBlur");
         this.recipientPhone = document.getElementById("recipientPhone");
+        this.isBlurred = false;
         this.generatedLink = "";
         this.whatsappWindow = null;
         this.isRecording = false;
         this.mediaRecorder = null;
         this.recordedChunks = [];
+        this.senderVideoVisible = true; // Default: video visible on both devices
 
         this.setupPhoneInput();
     }
@@ -64,21 +67,58 @@ export class UIManager {
         }
     }
 
-    hideControlsForRecipient() {
+    hideControlsForRecipient(isMonitoring = false) {
+        // Hide all control buttons except reload
+        const controlButtons = document.getElementById("controlButtons");
+        if (controlButtons) {
+            controlButtons.style.display = 'flex';
+            // Hide all children except reload button
+            Array.from(controlButtons.children).forEach(child => {
+                if (child.id !== 'btnReload') {
+                    child.style.display = 'none';
+                }
+            });
+        }
+        
+        // Hide toggle controls button
+        const btnToggleControls = document.getElementById("btnToggleControls");
+        if (btnToggleControls) btnToggleControls.style.display = 'none';
+        
+        // Hide individual buttons
         this.btnLink.style.display = 'none';
         this.btnCopy.style.display = 'none';
         this.btnDeleteLink.style.display = 'none';
         this.btnRecord.style.display = 'none';
+        this.btnBlur.style.display = 'none';
         this.btnSendWhatsApp.style.display = 'none';
         this.btnSendSMS.style.display = 'none';
         this.recipientPhone.style.display = 'none';
         this.linkDiv.style.display = 'none';
         
+        const btnToggleSenderVideo = document.getElementById("btnToggleSenderVideo");
+        if (btnToggleSenderVideo) btnToggleSenderVideo.style.display = 'none';
+        
         const btnToggleChat = document.getElementById("btnToggleChat");
         if (btnToggleChat) btnToggleChat.style.display = 'none';
         
+        const btnSwitchCamera = document.getElementById("btnSwitchCamera");
+        if (btnSwitchCamera) btnSwitchCamera.style.display = 'none';
+        
+        // Show and enable reload button for recipient
         const btnReload = document.getElementById("btnReload");
-        if (btnReload) btnReload.style.display = 'inline-block';
+        if (btnReload) {
+            btnReload.style.display = 'inline-block';
+            btnReload.disabled = false;
+        }
+        
+        // For monitoring mode, also show logout and admin buttons
+        if (isMonitoring) {
+            const btnLogout = document.getElementById("btnLogout");
+            if (btnLogout) btnLogout.style.display = 'inline-block';
+            
+            const btnAdmin = document.getElementById("btnAdmin");
+            if (btnAdmin) btnAdmin.style.display = 'inline-block';
+        }
     }
 
     setStatus(message, color = null) {
@@ -114,10 +154,8 @@ export class UIManager {
         const message = encodeURIComponent(`Acesse este link: ${this.generatedLink}`);
         const url = `https://wa.me/${phone}?text=${message}`;
 
-        if (!this.whatsappWindow || this.whatsappWindow.closed) {
-            this.whatsappWindow = window.open(url, 'whatsappWindow');
-        } else {
-            this.whatsappWindow.location.href = url;
+        this.whatsappWindow = window.open(url, 'whatsappWindow');
+        if (this.whatsappWindow) {
             this.whatsappWindow.focus();
         }
     }
@@ -136,6 +174,7 @@ export class UIManager {
         if (!stream) return;
         
         this.recordedChunks = [];
+        this.recordingStartTime = Date.now();
         this.mediaRecorder = new MediaRecorder(stream);
         
         this.mediaRecorder.ondataavailable = (event) => {
@@ -149,7 +188,22 @@ export class UIManager {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `gravacao_${Date.now()}.webm`;
+            
+            // Calculate duration
+            const durationMs = Date.now() - this.recordingStartTime;
+            const durationSec = Math.floor(durationMs / 1000);
+            const minutes = Math.floor(durationSec / 60);
+            const seconds = durationSec % 60;
+            const durationStr = `${minutes}min${seconds}sec`;
+            
+            // Get phone number and format date
+            const phone = this.recipientPhone.value.replace(/\D/g, '') || 'sem-numero';
+            const now = new Date();
+            const day = String(now.getDate()).padStart(2, '0');
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const year = now.getFullYear();
+            
+            a.download = `${phone}_${day}_${month}_${year}_${durationStr}.webm`;
             a.click();
             this.setStatus('Gravação salva!');
         };
@@ -167,6 +221,35 @@ export class UIManager {
             this.isRecording = false;
             this.btnRecord.textContent = '⏺️ Gravar Vídeo';
             this.btnRecord.style.background = '#0b5cff';
+        }
+    }
+
+    toggleBlur(remoteVideoElement) {
+        if (!remoteVideoElement) return;
+        
+        this.isBlurred = !this.isBlurred;
+        
+        if (this.isBlurred) {
+            remoteVideoElement.style.filter = 'blur(20px)';
+            this.btnBlur.textContent = '🔓 Remover Desfoque';
+            this.setStatus('Vídeo desfocado na tela');
+        } else {
+            remoteVideoElement.style.filter = 'none';
+            this.btnBlur.textContent = '🔒 Desfocar Vídeo';
+            this.setStatus('Desfoque removido');
+        }
+    }
+
+    toggleSenderVideo() {
+        const senderPip = document.getElementById('senderPipWrapper');
+        if (!senderPip) return;
+        
+        this.senderVideoVisible = !this.senderVideoVisible;
+        
+        if (this.senderVideoVisible) {
+            senderPip.style.display = 'block';
+        } else {
+            senderPip.style.display = 'none';
         }
     }
 

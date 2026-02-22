@@ -16,10 +16,20 @@ export class CameraManager {
         if (this.localStream) return this.localStream;
         
         try {
-            this.localStream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: this.usingFrontCamera ? "user" : "environment" },
-                audio: true
-            });
+            // Try with facingMode first (works on mobile)
+            try {
+                this.localStream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: this.usingFrontCamera ? "user" : "environment" },
+                    audio: true
+                });
+            } catch (e) {
+                // Fallback for desktop/devices without facingMode support
+                console.log("FacingMode not supported, using default camera:", e);
+                this.localStream = await navigator.mediaDevices.getUserMedia({
+                    video: true,
+                    audio: true
+                });
+            }
             
             if (!this.localVideoAdded) {
                 this.addVideo(this.localStream, true, true);
@@ -38,9 +48,25 @@ export class CameraManager {
         
         try {
             this.senderStream = await navigator.mediaDevices.getUserMedia({ 
-                video: false, 
+                video: true, 
                 audio: true 
             });
+            
+            // Add sender's own video as PIP overlay
+            const wrapper = document.createElement("div");
+            wrapper.className = "sender-pip";
+            wrapper.id = "senderPipWrapper";
+            
+            const video = document.createElement("video");
+            video.srcObject = this.senderStream;
+            video.autoplay = true;
+            video.playsInline = true;
+            video.muted = true;
+            video.id = "senderPipVideo";
+            
+            wrapper.appendChild(video);
+            this.videosContainer.appendChild(wrapper);
+            
             return this.senderStream;
         } catch (error) {
             console.error("Erro ao acessar mídia do remetente:", error);
@@ -82,26 +108,32 @@ export class CameraManager {
         if (isLocal && this.localVideoAdded) return;
         if (!isLocal && this.remoteVideoAdded) return;
 
+        const params = new URLSearchParams(location.search);
+        const room = params.get("r");
+        const isRecipient = !!room;
+
         const wrapper = document.createElement("div");
-        wrapper.className = "video-wrapper";
+        
+        // For recipient: local is main, remote is PIP
+        if (isRecipient) {
+            wrapper.className = isLocal ? "video-wrapper recipient-main" : "recipient-pip";
+        } else {
+            wrapper.className = "video-wrapper";
+        }
 
         const video = document.createElement("video");
         video.srcObject = stream;
         video.autoplay = true;
         video.playsInline = true;
         video.muted = muted;
-        video.style.display = 'block';
-
-        wrapper.appendChild(video);
         
+        wrapper.appendChild(video);
         this.videosContainer.appendChild(wrapper);
 
         if (isLocal) {
             this.localVideoAdded = true;
             this.localVideoElement = video;
 
-            const params = new URLSearchParams(location.search);
-            const room = params.get("r");
             if (room) {
                 const btnSwitchCamera = document.getElementById("btnSwitchCamera");
                 btnSwitchCamera.style.display = "block";
@@ -112,13 +144,47 @@ export class CameraManager {
             this.remoteVideoElement = video;
         }
 
+        // Ensure video is visible and plays
+        stream.onaddtrack = () => {
+            if (stream.getVideoTracks().length > 0) {
+                video.style.display = 'block';
+            }
+        };
+        
+        // Check immediately if video tracks exist
+        if (stream.getVideoTracks().length > 0) {
+            video.style.display = 'block';
+        } else {
+            video.style.display = 'none';
+        }
+
+        // Force video to play
+        video.play().catch(err => {
+            console.log("Autoplay prevented, trying muted:", err);
+            video.muted = true;
+            video.play().catch(e => console.error("Video play failed:", e));
+        });
+
         return video;
     }
 
     async switchCamera() {
         try {
+            // Check if device has multiple cameras before attempting switch
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const videoDevices = devices.filter(device => device.kind === 'videoinput');
+            
+            if (videoDevices.length < 2) {
+                throw new Error('Dispositivo possui apenas uma câmera');
+            }
+
             this.usingFrontCamera = !this.usingFrontCamera;
             
+            // Stop current video tracks first to release camera hardware (crucial for mobile)
+            if (this.localStream) {
+                this.localStream.getVideoTracks().forEach(t => t.stop());
+            }
+
             const constraints = {
                 video: {
                     facingMode: { exact: this.usingFrontCamera ? "user" : "environment" }
@@ -130,16 +196,36 @@ export class CameraManager {
             try {
                 newStream = await navigator.mediaDevices.getUserMedia(constraints);
             } catch (e) {
-                // Fallback if exact constraint fails
                 console.log("Exact facingMode failed, trying ideal:", e);
                 constraints.video = {
                     facingMode: { ideal: this.usingFrontCamera ? "user" : "environment" }
                 };
-                newStream = await navigator.mediaDevices.getUserMedia(constraints);
+                try {
+                    newStream = await navigator.mediaDevices.getUserMedia(constraints);
+                } catch (innerE) {
+                    console.log("FacingMode not supported, trying deviceId method:", innerE);
+                    // Fallback: cycle through available cameras by deviceId
+                    const currentDeviceId = this.localStream?.getVideoTracks()[0]?.getSettings()?.deviceId;
+                    const nextDevice = videoDevices.find(d => d.deviceId !== currentDeviceId) || videoDevices[0];
+                    
+                    try {
+                        newStream = await navigator.mediaDevices.getUserMedia({
+                            video: { deviceId: { exact: nextDevice.deviceId } },
+                            audio: true
+                        });
+                    } catch (finalE) {
+                        console.error("Failed to switch camera:", finalE);
+                        this.usingFrontCamera = !this.usingFrontCamera;
+                        throw new Error('Não foi possível trocar de câmera');
+                    }
+                }
             }
 
+            // Stop any remaining tracks (like audio) from old stream
             if (this.localStream) {
-                this.localStream.getTracks().forEach(t => t.stop());
+                this.localStream.getTracks().forEach(t => {
+                    if (t.readyState !== 'ended') t.stop();
+                });
             }
 
             this.localStream = newStream;
@@ -151,8 +237,6 @@ export class CameraManager {
             return newStream;
         } catch (err) {
             console.error("Erro ao trocar câmera:", err);
-            // Revert the flag if failed
-            this.usingFrontCamera = !this.usingFrontCamera;
             throw err;
         }
     }

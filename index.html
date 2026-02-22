@@ -7,27 +7,51 @@
 <meta name="theme-color" content="#0b5cff">
 <link rel="stylesheet" href="styles.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 </head>
 
 <body>
-<header>📡 Live Cam</header>
+<div id="loginScreen">
+    <div class="login-container">
+        <h2>📡 Live Cam - Login</h2>
+        <select id="loginProfile">
+            <option value="operador">Operador</option>
+            <option value="supervisor">Supervisor</option>
+        </select>
+        <input type="text" id="loginUsername" placeholder="Usuário">
+        <input type="password" id="loginPassword" placeholder="Senha">
+        <button id="btnLogin">Entrar</button>
+        <div id="loginError" class="login-error"></div>
+    </div>
+</div>
+
+<div id="appScreen" style="display:none;">
+<header>
+    📡 Live Cam
+    <span id="userInfo" style="float:right; font-size:12px;"></span>
+</header>
 
 <div id="controls">
-    <button id="btnLink" disabled>🔗 Gerar Link</button>
-    <button id="btnCopy" disabled>📋 Copiar Link</button>
-    <button id="btnDeleteLink" disabled>❌ Excluir Link</button>
-    <button id="btnRecord" disabled>⏺️ Gravar Vídeo</button>
-    <button id="btnToggleChat">💬 Ocultar Chat</button>
-    <button id="btnSwitchCamera" style="display:none;">🔄 Trocar Câmera</button>
-    <button id="btnReload" style="display:none;">🔄 Recarregar</button>
-    <div class="status" id="status">Inicializando conexão...</div>
-    <div id="link"></div>
-    
-    <div style="margin-top: 15px;">
+    <button id="btnToggleControls">➖ Ocultar Botões</button>
+    <button id="btnAdmin" style="display:none;">👤 Admin</button>
+    <button id="btnLogout">🚪 Sair</button>
+    <div id="controlButtons">
+        <button id="btnLink" disabled>🔗 Gerar Link</button>
+        <button id="btnCopy" disabled>📋 Copiar Link</button>
+        <button id="btnDeleteLink" disabled>❌ Excluir Link</button>
+        <button id="btnRecord" disabled>⏺️ Gravar Vídeo</button>
+        <button id="btnBlur" disabled>🔒 Desfocar Vídeo</button>
+        <button id="btnToggleSenderVideo" disabled>👁️ Inibir Meu Vídeo</button>
+        <button id="btnToggleChat">➖ Ocultar Chat</button>
+        <button id="btnSwitchCamera" style="display:none;">🔄 Trocar Câmera</button>
+        <button id="btnReload" style="display:none;">🔄 Recarregar</button>
         <input type="tel" id="recipientPhone" placeholder="+55 (DDD) 9XXXX-XXXX">
         <button id="btnSendWhatsApp" disabled>📱 WhatsApp</button>
         <button id="btnSendSMS" disabled>💬 SMS</button>
     </div>
+    <div class="status" id="status">Inicializando conexão...</div>
+    <div id="link"></div>
 </div>
 
 <div id="mainLayout">
@@ -35,7 +59,9 @@
         <div id="videoContainer">
             <div id="videos"></div>
             <div id="chat">
-                <div id="chatHeader">💬 Chat</div>
+                <div id="chatHeader">
+                    <span>💬</span>
+                </div>
                 <div id="chatMessages"></div>
                 <div id="chatInput">
                     <button id="btnImage" title="Enviar imagem">📎</button>
@@ -53,8 +79,50 @@
     </div>
 </div>
 
+<div id="adminPanel" style="display:none;">
+    <div class="admin-container">
+        <h2>Painel Administrativo</h2>
+        <button id="btnCloseAdmin">✖️ Fechar</button>
+        
+        <div id="adminTabs">
+            <button class="admin-tab active" data-tab="users">Usuários</button>
+            <button class="admin-tab" data-tab="connections" id="connectionsTab" style="display:none;">Conexões Ativas</button>
+            <button class="admin-tab" data-tab="files" id="filesTab" style="display:none;">Arquivos</button>
+        </div>
+        
+        <div id="usersTab" class="admin-tab-content">
+            <h3>Gerenciar Usuários</h3>
+            <div id="userForm">
+                <input type="text" id="newUsername" placeholder="Usuário">
+                <input type="password" id="newPassword" placeholder="Senha">
+                <select id="newProfile">
+                    <option value="operador">Operador</option>
+                    <option value="supervisor">Supervisor</option>
+                </select>
+                <button id="btnCreateUser">Criar Usuário</button>
+                <button id="btnUpdateUser" style="display:none;">Atualizar</button>
+                <button id="btnCancelEdit" style="display:none;">Cancelar</button>
+            </div>
+            <div id="usersList"></div>
+        </div>
+        
+        <div id="connectionsTab" class="admin-tab-content" style="display:none;">
+            <h3>Conexões Ativas</h3>
+            <div id="connectionsList"></div>
+        </div>
+        
+        <div id="filesTab" class="admin-tab-content" style="display:none;">
+            <h3>Arquivos por Telefone</h3>
+            <input type="tel" id="fileSearchPhone" placeholder="Buscar por telefone (+55...)">
+            <button id="btnSearchFiles">Buscar</button>
+            <div id="filesList"></div>
+        </div>
+    </div>
+</div>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <script type="module" src="app.js"></script>
+</div>
 </body>
 </html>

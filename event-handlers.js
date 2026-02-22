@@ -11,6 +11,19 @@ export class EventHandlers {
     }
 
     setupEventListeners() {
+        // Toggle controls visibility
+        const btnToggleControls = document.getElementById("btnToggleControls");
+        const controlButtons = document.getElementById("controlButtons");
+        btnToggleControls.onclick = () => {
+            if (controlButtons.style.display === 'none') {
+                controlButtons.style.display = 'flex';
+                btnToggleControls.textContent = '➖ Ocultar Botões';
+            } else {
+                controlButtons.style.display = 'none';
+                btnToggleControls.textContent = '➕ Mostrar Botões';
+            }
+        };
+        
         // Link management buttons
         this.ui.btnLink.onclick = () => this.handleGenerateLink();
         this.ui.btnCopy.onclick = () => this.handleCopyLink();
@@ -22,17 +35,20 @@ export class EventHandlers {
         
         // Video controls
         this.ui.btnRecord.onclick = () => this.handleRecord();
+        this.ui.btnBlur.onclick = () => this.handleBlur();
+        
+        const btnToggleSenderVideo = document.getElementById("btnToggleSenderVideo");
+        btnToggleSenderVideo.onclick = () => this.handleToggleSenderVideo();
         
         const btnSwitchCamera = document.getElementById("btnSwitchCamera");
         btnSwitchCamera.onclick = () => this.handleSwitchCamera();
         
         const btnReload = document.getElementById("btnReload");
-        btnReload.onclick = () => location.reload();
+        btnReload.onclick = () => window.location.reload();
         
         // Chat controls
         const btnSend = document.getElementById("btnSend");
         const messageInput = document.getElementById("messageInput");
-        const btnToggleChat = document.getElementById("btnToggleChat");
         const btnImage = document.getElementById("btnImage");
         const imageInput = document.getElementById("imageInput");
         
@@ -43,8 +59,6 @@ export class EventHandlers {
                 this.chat.sendMessage(messageInput.value);
             }
         });
-        
-        btnToggleChat.onclick = () => this.chat.toggleChat();
         
         btnImage.onclick = () => imageInput.click();
         
@@ -60,6 +74,20 @@ export class EventHandlers {
             }
             imageInput.value = '';
         });
+        
+        // Chat toggle
+        const btnToggleChat = document.getElementById("btnToggleChat");
+        const chat = document.getElementById("chat");
+        
+        btnToggleChat.onclick = () => {
+            if (chat.style.display === 'none') {
+                chat.style.display = 'flex';
+                btnToggleChat.textContent = '➖ Ocultar Chat';
+            } else {
+                chat.style.display = 'none';
+                btnToggleChat.textContent = '➕ Mostrar Chat';
+            }
+        };
     }
 
     handleGenerateLink() {
@@ -70,7 +98,7 @@ export class EventHandlers {
         this.ui.copyLink();
     }
 
-    handleDeleteLink() {
+    async handleDeleteLink() {
         if (!this.ui.generatedLink) return;
 
         try {
@@ -79,6 +107,14 @@ export class EventHandlers {
         } catch (e) {
             console.error("Erro ao enviar comandos:", e);
         }
+
+        // Deactivate link permanently in Firebase
+        const authModule = await import('./auth.js');
+        const tempAuth = new authModule.AuthManager();
+        const adminModule = await import('./admin.js');
+        const tempAdmin = new adminModule.AdminManager(tempAuth);
+        
+        await tempAdmin.deactivateLink(this.peerConnection.peerId);
 
         localStorage.removeItem("livecam_link");
         localStorage.removeItem("livecam_peerId");
@@ -94,7 +130,7 @@ export class EventHandlers {
             try {
                 this.peerConnection.destroy();
             } catch (e) {}
-            location.reload();
+            window.location.reload();
         }, 500);
     }
 
@@ -106,11 +142,11 @@ export class EventHandlers {
         }
     }
 
+    handleBlur() {
+        this.ui.toggleBlur(this.camera.remoteVideoElement);
+    }
+
     async handleSwitchCamera() {
-        const params = new URLSearchParams(location.search);
-        const room = params.get("r");
-        if (!room) return;
-        
         try {
             const newStream = await this.camera.switchCamera();
             
@@ -121,10 +157,10 @@ export class EventHandlers {
                 const senders = this.peerConnection.currentCall.peerConnection.getSenders();
                 for (const sender of senders) {
                     if (sender.track && sender.track.kind === 'audio') {
-                        if (audioTrack) await sender.replaceTrack(audioTrack);
+                        if (audioTrack) await sender.replaceTrack(audioTrack).catch(e => console.error("Erro replace audio:", e));
                     } else {
                         // Se for track de vídeo ou nula (assumimos ser o sender de vídeo), substitui
-                        if (videoTrack) await sender.replaceTrack(videoTrack);
+                        if (videoTrack) await sender.replaceTrack(videoTrack).catch(e => console.error("Erro replace video:", e));
                     }
                 }
                 
@@ -133,6 +169,18 @@ export class EventHandlers {
         } catch (err) {
             console.error("Erro ao trocar câmera:", err);
             this.ui.setStatus("Erro ao trocar câmera", "#ef4444");
+        }
+    }
+
+    handleToggleSenderVideo() {
+        this.ui.toggleSenderVideo();
+        const btnToggleSenderVideo = document.getElementById("btnToggleSenderVideo");
+        if (this.ui.senderVideoVisible) {
+            btnToggleSenderVideo.textContent = '👁️ Inibir Meu Vídeo';
+            this.peerConnection.sendData({ type: 'sender_video_visible', visible: true });
+        } else {
+            btnToggleSenderVideo.textContent = '👁️ Mostrar Meu Vídeo';
+            this.peerConnection.sendData({ type: 'sender_video_visible', visible: false });
         }
     }
 

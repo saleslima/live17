@@ -26,6 +26,11 @@ export class ConnectionSetup {
                 
                 const btnToggleSenderVideo = document.getElementById("btnToggleSenderVideo");
                 if (btnToggleSenderVideo) btnToggleSenderVideo.disabled = false;
+                
+                // Send default hidden state to recipient
+                setTimeout(() => {
+                    this.peerConnection.sendData({ type: 'sender_video_visible', visible: false });
+                }, 500);
             });
             
             call.on('track', (track, stream) => {
@@ -53,15 +58,6 @@ export class ConnectionSetup {
                 this.chat.receiveMessage(data.message);
             } else if (data.type === 'image') {
                 this.chat.receiveImage(data.dataUrl);
-            } else if (data.type === 'sender_video_visible') {
-                // Bidirectional video hiding - hide both sender's PIP and remote video
-                const senderPip = document.getElementById('senderPipWrapper');
-                if (senderPip) {
-                    senderPip.style.display = data.visible ? 'block' : 'none';
-                }
-                if (this.camera.remoteVideoElement) {
-                    this.camera.remoteVideoElement.style.display = data.visible ? 'block' : 'none';
-                }
             }
         });
     }
@@ -118,6 +114,15 @@ export class ConnectionSetup {
                 if (hasVideo) {
                     this.camera.addVideo(remoteStream, false, false, true);
                     this.ui.setStatus("Conectado");
+                    
+                    // Show logo by default on recipient
+                    this.camera.showLogoOnRecipient();
+                    
+                    // Show green status indicator and hide reload
+                    const statusIndicator = document.getElementById("connectionStatus");
+                    const btnReload = document.getElementById("btnReload");
+                    if (statusIndicator) statusIndicator.style.display = 'inline-block';
+                    if (btnReload) btnReload.disabled = true;
                 } else if (hasAudio) {
                     const audioElement = new Audio();
                     audioElement.srcObject = remoteStream;
@@ -190,21 +195,31 @@ export class ConnectionSetup {
                         }
                     }
                 } else if (data.type === 'sender_video_visible') {
-                    // Bidirectional video hiding - hide both local and remote when sender hides
+                    // Hide/show sender's video on recipient only (not recipient's own camera)
                     if (data.visible) {
-                        if (this.camera.localVideoElement) {
-                            this.camera.localVideoElement.style.display = 'block';
-                        }
+                        // Show sender's video (PIP), hide logo
                         if (this.camera.remoteVideoElement) {
                             this.camera.remoteVideoElement.style.display = 'block';
                         }
+                        this.camera.hideLogoOnRecipient();
+                        
+                        // Show green status, disable reload
+                        const statusIndicator = document.getElementById("connectionStatus");
+                        const btnReload = document.getElementById("btnReload");
+                        if (statusIndicator) statusIndicator.style.display = 'inline-block';
+                        if (btnReload) btnReload.disabled = true;
                     } else {
-                        if (this.camera.localVideoElement) {
-                            this.camera.localVideoElement.style.display = 'none';
-                        }
+                        // Hide sender's video (PIP), show logo
                         if (this.camera.remoteVideoElement) {
                             this.camera.remoteVideoElement.style.display = 'none';
                         }
+                        this.camera.showLogoOnRecipient();
+                        
+                        // Hide green status, enable reload
+                        const statusIndicator = document.getElementById("connectionStatus");
+                        const btnReload = document.getElementById("btnReload");
+                        if (statusIndicator) statusIndicator.style.display = 'none';
+                        if (btnReload) btnReload.disabled = false;
                     }
                 } else if (data.type === 'link_deleted' && !isMonitoring) {
                     this.camera.stopLocalCamera();

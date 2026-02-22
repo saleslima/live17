@@ -176,10 +176,8 @@ export class EventHandlers {
         this.ui.toggleSenderVideo();
         const btnToggleSenderVideo = document.getElementById("btnToggleSenderVideo");
         
-        // Also toggle remote video visibility on sender's screen
-        if (this.camera.remoteVideoElement) {
-            this.camera.remoteVideoElement.style.display = this.ui.senderVideoVisible ? 'block' : 'none';
-        }
+        // Sender always sees their own video and recipient's video
+        // This button only controls what the recipient sees
         
         if (this.ui.senderVideoVisible) {
             btnToggleSenderVideo.textContent = '👁️ Inibir Meu Vídeo';

@@ -18,7 +18,7 @@ export class UIManager {
         this.isRecording = false;
         this.mediaRecorder = null;
         this.recordedChunks = [];
-        this.senderVideoVisible = true; // Default: video visible on both devices
+        this.senderVideoVisible = false; // Default: video hidden on recipient, showing logo
 
         this.setupPhoneInput();
     }
@@ -241,16 +241,7 @@ export class UIManager {
     }
 
     toggleSenderVideo() {
-        const senderPip = document.getElementById('senderPipWrapper');
-        if (!senderPip) return;
-        
         this.senderVideoVisible = !this.senderVideoVisible;
-        
-        if (this.senderVideoVisible) {
-            senderPip.style.display = 'block';
-        } else {
-            senderPip.style.display = 'none';
-        }
     }
 
 }

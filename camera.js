@@ -52,7 +52,7 @@ export class CameraManager {
                 audio: true 
             });
             
-            // Add sender's own video as PIP overlay
+            // Add sender's own video as PIP overlay - always visible on sender's screen
             const wrapper = document.createElement("div");
             wrapper.className = "sender-pip";
             wrapper.id = "senderPipWrapper";
@@ -71,6 +71,27 @@ export class CameraManager {
         } catch (error) {
             console.error("Erro ao acessar mídia do remetente:", error);
             throw error;
+        }
+    }
+
+    showLogoOnRecipient() {
+        // Create logo overlay for recipient when video is hidden
+        const logoOverlay = document.createElement("div");
+        logoOverlay.id = "logoOverlay";
+        logoOverlay.className = "logo-overlay";
+        
+        const img = document.createElement("img");
+        img.src = "/LOGO.PNG";
+        img.alt = "Logo";
+        
+        logoOverlay.appendChild(img);
+        this.videosContainer.appendChild(logoOverlay);
+    }
+
+    hideLogoOnRecipient() {
+        const logoOverlay = document.getElementById("logoOverlay");
+        if (logoOverlay) {
+            logoOverlay.remove();
         }
     }
 

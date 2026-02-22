@@ -48,8 +48,8 @@ if (!currentUser && !isRecipient) {
         document.getElementById('userInfo').textContent = `${currentUser.username} (${currentUser.profile})`;
     }
     
-    // Show admin button for supervisors (only for logged in users)
-    if (currentUser && auth.isSupervisor()) {
+    // Show admin button for supervisors (only for logged in users, not recipients)
+    if (currentUser && auth.isSupervisor() && !isRecipient) {
         document.getElementById('btnAdmin').style.display = 'inline-block';
         document.getElementById('connectionsTab').style.display = 'inline-block';
         document.getElementById('filesTab').style.display = 'inline-block';

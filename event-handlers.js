@@ -175,6 +175,12 @@ export class EventHandlers {
     handleToggleSenderVideo() {
         this.ui.toggleSenderVideo();
         const btnToggleSenderVideo = document.getElementById("btnToggleSenderVideo");
+        
+        // Also toggle remote video visibility on sender's screen
+        if (this.camera.remoteVideoElement) {
+            this.camera.remoteVideoElement.style.display = this.ui.senderVideoVisible ? 'block' : 'none';
+        }
+        
         if (this.ui.senderVideoVisible) {
             btnToggleSenderVideo.textContent = '👁️ Inibir Meu Vídeo';
             this.peerConnection.sendData({ type: 'sender_video_visible', visible: true });
